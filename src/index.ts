@@ -79,6 +79,9 @@ export const functions = [
 
 const app = express();
 
+// Body parsing middleware (required for Inngest)
+app.use(express.json());
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
