@@ -5,7 +5,7 @@
  * Karen emails Jordan, and if ignored, escalates organically.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { karenCustomer } from '../../agents/external/karen-customer';
 import { jordan } from '../../agents/leadership/jordan';

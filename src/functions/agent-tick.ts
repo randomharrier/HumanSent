@@ -4,7 +4,7 @@
  * The core loop that runs each agent's decision cycle.
  */
 
-import { inngest } from '../index';
+import { inngest } from '../inngest-client';
 import { getAgent, getOtherAgents, ALL_AGENT_IDS } from '../agents';
 import { gmail, slack, llm, db } from '../services';
 import { isBusinessHours, getDayOfWeek, ENV } from '../config';

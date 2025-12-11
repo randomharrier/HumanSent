@@ -4,7 +4,7 @@
  * Simulates board deck deadline pressure and metrics requests.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { sarahInvestor } from '../../agents/external/sarah-investor';
 import { alex } from '../../agents/leadership/alex';

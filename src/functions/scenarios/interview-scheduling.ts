@@ -5,7 +5,7 @@
  * Cross-functional hiring coordination.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { alex } from '../../agents/leadership/alex';
 import { jordan } from '../../agents/leadership/jordan';

@@ -5,7 +5,7 @@
  * Strategic planning and reflection.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { alex } from '../../agents/leadership/alex';
 import { morgan } from '../../agents/leadership/morgan';

@@ -5,7 +5,7 @@
  * Creates routine cross-team communication.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, db } from '../../services';
 import { alex } from '../../agents/leadership/alex';
 import { morgan } from '../../agents/leadership/morgan';

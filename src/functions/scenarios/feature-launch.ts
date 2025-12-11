@@ -5,7 +5,7 @@
  * Cross-functional product launch scenario.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { jordan } from '../../agents/leadership/jordan';
 import { sam } from '../../agents/leadership/sam';

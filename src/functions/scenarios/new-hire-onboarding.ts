@@ -4,7 +4,7 @@
  * New engineer starting next week, need to coordinate onboarding.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { sam } from '../../agents/leadership/sam';
 import { riley } from '../../agents/internal/riley';

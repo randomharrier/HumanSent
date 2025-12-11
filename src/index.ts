@@ -4,9 +4,9 @@
  * Main entry point for the agent simulation system.
  */
 
-import { Inngest } from 'inngest';
 import { serve } from 'inngest/express';
 import express from 'express';
+import { inngest } from './inngest-client';
 import { agentTickFunction, agentTickAllFunction } from './functions/agent-tick';
 import {
   // Emergency/Pressure
@@ -32,14 +32,8 @@ import {
   customerWinScenario,
 } from './functions/scenarios';
 
-// ============================================
-// Inngest Client
-// ============================================
-
-export const inngest = new Inngest({
-  id: 'humansent-agents',
-  eventKey: process.env.INNGEST_EVENT_KEY,
-});
+// Re-export inngest client for backward compatibility
+export { inngest };
 
 // ============================================
 // All Functions

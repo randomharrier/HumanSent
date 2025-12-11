@@ -5,7 +5,7 @@
  * Operations pressure scenario.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { morgan } from '../../agents/leadership/morgan';
 import { casey } from '../../agents/internal/casey';

@@ -5,7 +5,7 @@
  * receives a subpoena for customer message content.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { robertLegal } from '../../agents/external/robert-legal';
 import { alex } from '../../agents/leadership/alex';

@@ -5,7 +5,7 @@
  * Strategic conversation starter.
  */
 
-import { inngest } from '../../index';
+import { inngest } from '../../inngest-client';
 import { gmail, llm, db } from '../../services';
 import { alex } from '../../agents/leadership/alex';
 import { chanceAdvisor } from '../../agents/external/chance-advisor';
