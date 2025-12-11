@@ -1,0 +1,118 @@
+# HumanSent Agents - Cursor Rules
+
+## Project Context
+
+Autonomous agent simulation for testing Precedent AI. 11 agents simulate a seed-stage startup, reading email/Slack and making LLM-powered decisions to create organic communication patterns.
+
+**Key principle:** Agents have full agency. They decide who to message, what to write, and when to act. Scenarios are seed events, not scripts.
+
+## Tech Stack
+
+| Layer | Tool |
+|-------|------|
+| Language | TypeScript (strict mode) |
+| Orchestration | Inngest |
+| Hosting | Railway |
+| State | Supabase |
+| Email | Gmail API |
+| Slack | Slack Web API |
+| LLM | Anthropic Claude |
+
+## Code Style
+
+- TypeScript strict mode, no `any`
+- ESLint + Prettier defaults
+- Prefer async/await over callbacks
+- Use Zod for runtime validation of LLM outputs
+- Prefer simple, direct code over abstractions
+
+## Branch Strategy
+
+- `main` ← `feature/*` (no develop branch)
+- Keep PRs small and focused
+- No elaborate testing requirements
+
+## Environment Variables
+
+- All secrets in Railway/environment, never committed
+- Use `.env.example` as template
+
+## File Structure
+
+```
+src/
+├── agents/        # Persona definitions (11 agents)
+├── functions/     # Inngest functions (tick + scenarios)
+├── services/      # Gmail, Slack, LLM, Supabase
+├── types/         # Shared TypeScript types
+├── prompts/       # System + user prompt assembly
+├── config/        # Product laws, constants
+└── index.ts       # Inngest client setup
+```
+
+## Key Patterns
+
+### Agent Ticks
+- Idempotent (can retry safely)
+- Run every 30 min during business hours
+- All actions logged to `agent_actions` table
+
+### LLM Outputs
+- Always validate with Zod before execution
+- Graceful degradation if APIs fail
+- Log reasoning for debugging
+
+### Actions
+```typescript
+type ActionType = 
+  | 'send_email'
+  | 'send_slack_message'
+  | 'create_task'
+  | 'mark_task_done'
+  | 'snooze_task'
+  | 'use_precedent'
+  | 'no_action';
+```
+
+## Testing Approach
+
+- No mocks, no unit tests initially
+- Test by running against real Gmail/Slack
+- Inngest dashboard provides observability
+- Action log table provides audit trail
+
+## Anti-Patterns
+
+- ❌ Don't use `any` type
+- ❌ Don't hardcode credentials
+- ❌ Don't skip Zod validation on LLM output
+- ❌ Don't create new abstractions for one-time operations
+- ❌ Don't add console.log (use structured logging)
+
+## Agents Reference
+
+### Leadership (4) — Precedent Users
+- `alex@humansent.co` — CEO/Founder
+- `morgan@humansent.co` — COO
+- `jordan@humansent.co` — Head of Product
+- `sam@humansent.co` — Head of Engineering
+
+### Internal Support (3)
+- `taylor@humansent.co` — Customer Success Lead
+- `riley@humansent.co` — Senior Engineer
+- `casey@humansent.co` — Operations Coordinator
+
+### External Role-Players (4)
+- `chance-advisor@humansent.co` — Board Advisor
+- `sarah-investor@humansent.co` — Lead Investor
+- `karen-customer@humansent.co` — Repeat Complainant
+- `robert-legal@humansent.co` — Legal Counsel
+
+## HumanSent Product Laws (for agent prompts)
+
+1. **No instant delivery.** Every message must be physically mailed.
+2. **All handwriting is real.** No fonts, no robots, no plotters.
+3. **Photos must be taken live in-app**, with zero preview, cannot come from camera roll.
+4. **Messages cannot be edited once sent.** No undo, no recall.
+5. **No digital copies stored after writing.** If it exists, it exists as a physical card only.
+
