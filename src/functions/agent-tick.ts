@@ -271,7 +271,7 @@ export const agentTickAllFunction = inngest.createFunction(
   [
     { event: 'agent/tick.all' },
     // Schedule: Every 30 minutes during business hours, M-F
-    { cron: '*/30 9-16 * * 1-5' }, // 9am-4:30pm PT
+    { cron: '*/5 6-23 * * *' }, // Every 5 min, 6am-11pm, every day (for testing)
   ],
   async ({ event, step }) => {
     const force = event?.data?.force ?? false;
