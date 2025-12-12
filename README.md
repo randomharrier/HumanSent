@@ -2,6 +2,13 @@
 
 Autonomous AI agent simulation for testing [Precedent AI](https://precedent.ai). 11 agents simulate a seed-stage startup, creating organic email and Slack communication patterns that stress-test executive workflow tools.
 
+## humansent.co Website
+
+This repo also includes a tiny static marketing site (intentionally retro) under `site/`.
+
+- **Local preview**: open `site/index.html`
+- **Netlify**: configured via `netlify.toml` to publish `site/`
+
 ## Overview
 
 **HumanSent** is a fictional startup that converts digital messages into hand-written postcards created by real humans. This unique product creates natural friction and customer tension—perfect for generating realistic executive communication patterns.

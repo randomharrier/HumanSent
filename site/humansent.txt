@@ -1,0 +1,20 @@
+HUMANSENT
+========
+
+HumanSent turns digital messages into real, handwritten postcards created by real humans.
+Slow on purpose.
+
+The laws (non-negotiable):
+1) No instant delivery. Every message must be physically mailed.
+2) All handwriting is real. No fonts, no robots, no plotters.
+3) Photos must be taken live in-app. Zero preview. Not from camera roll.
+4) Messages cannot be edited once sent. No undo. No recall.
+5) No digital copies stored after writing. If it exists, it exists as a physical card only.
+
+If you’re here because you want instant delivery:
+We respect you. But we’re building the opposite.
+
+Contact:
+hello@humansent.co
+
+
