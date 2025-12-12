@@ -412,9 +412,14 @@ export async function syncSlackMessagesToSupabase(
     return { messagesSynced: 0, conversationsUpdated: 0 };
   }
 
+  // Hard safety: never sync control-channel messages into the DB message cache.
+  // This ensures control commands cannot leak into agent context even if misconfigured.
+  const controlChannelId = process.env.SLACK_CONTROL_CHANNEL_ID;
+
   // Group messages by channel for sync state tracking
   const messagesByChannel = new Map<string, SlackMessage[]>();
   for (const msg of messages) {
+    if (controlChannelId && msg.channel === controlChannelId) continue;
     const existing = messagesByChannel.get(msg.channel) || [];
     existing.push(msg);
     messagesByChannel.set(msg.channel, existing);
@@ -455,6 +460,7 @@ export async function syncSlackMessagesToSupabase(
   }> = [];
 
   for (const msg of messages) {
+    if (controlChannelId && msg.channel === controlChannelId) continue;
     const user = await getUser(msg.userId);
     const channelName = channelIdToName[msg.channel] || msg.channel;
     

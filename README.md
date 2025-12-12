@@ -145,6 +145,16 @@ GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END P
 # Slack
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_SIGNING_SECRET=your-signing-secret
+
+# Slack Control Channel (recommended)
+# Create a private channel (e.g. #agent-control), invite the bot, then copy the Channel ID.
+SLACK_CONTROL_CHANNEL_ID=C0123456789
+# Allowlist who can issue commands (Slack Member IDs, comma-separated)
+SLACK_CONTROL_ALLOWED_USER_IDS=U0123456789
+# Command prefix to listen for in the control channel
+SLACK_CONTROL_COMMAND_PREFIX=!hs
+# After triggering a scenario, auto-trigger `agent/tick.all` so agents react immediately
+SLACK_CONTROL_AUTOTICK_AFTER_SCENARIO=true
 ```
 
 ### Google Workspace Setup
@@ -167,6 +177,23 @@ SLACK_SIGNING_SECRET=your-signing-secret
    - `users:read`
    - `users:read.email`
 3. Install to your workspace
+
+### Slack Control (run ticks/scenarios from Slack)
+
+1. Create a *private* Slack channel (e.g. `#agent-control`) and invite the bot.
+2. In Slack App settings → **Event Subscriptions**:
+   - Enable events
+   - Set Request URL to your server: `https://<your-railway-domain>/api/slack/events`
+   - Subscribe to **Bot Events**:
+     - `message.groups` (private channels)
+     - `message.channels` (public channels, optional)
+3. Set env vars:
+   - `SLACK_CONTROL_CHANNEL_ID` to the channel ID of `#agent-control`
+   - `SLACK_CONTROL_ALLOWED_USER_IDS` to your Slack member ID (so only you can control)
+4. Use commands in that channel, e.g.:
+   - `!hs help`
+   - `!hs tick`
+   - `!hs scenario karen-meltdown`
 
 ## Usage
 

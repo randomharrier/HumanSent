@@ -49,12 +49,29 @@ export async function getAllAgentStates(): Promise<AgentState[]> {
   const { data, error } = await getClient()
     .from('agent_state')
     .select('*')
-    .eq('is_active', true)
     .order('agent_id');
 
   if (error) throw error;
 
   return (data || []).map(transformAgentState);
+}
+
+export async function setAgentActive(agentId: string, isActive: boolean): Promise<void> {
+  const { error } = await getClient()
+    .from('agent_state')
+    .update({ is_active: isActive })
+    .eq('agent_id', agentId);
+
+  if (error) throw error;
+}
+
+export async function setAllAgentsActive(isActive: boolean): Promise<void> {
+  const { error } = await getClient()
+    .from('agent_state')
+    .update({ is_active: isActive })
+    .neq('agent_id', ''); // no-op filter required by PostgREST
+
+  if (error) throw error;
 }
 
 export async function upsertAgentState(
@@ -96,6 +113,18 @@ export async function updateAgentBudget(agentId: string, budgetRemaining: number
   if (error) throw error;
 }
 
+export async function resetAgentBudget(agentId: string, budgetRemaining: number = 100): Promise<void> {
+  const { error } = await getClient()
+    .from('agent_state')
+    .update({
+      budget_remaining: budgetRemaining,
+      budget_reset_at: new Date().toISOString().split('T')[0],
+    })
+    .eq('agent_id', agentId);
+
+  if (error) throw error;
+}
+
 export async function resetAllBudgets(): Promise<void> {
   const { error } = await getClient()
     .from('agent_state')
@@ -104,6 +133,18 @@ export async function resetAllBudgets(): Promise<void> {
       budget_reset_at: new Date().toISOString().split('T')[0],
     })
     .eq('is_active', true);
+
+  if (error) throw error;
+}
+
+export async function resetAllBudgetsAllAgents(budgetRemaining: number = 100): Promise<void> {
+  const { error } = await getClient()
+    .from('agent_state')
+    .update({
+      budget_remaining: budgetRemaining,
+      budget_reset_at: new Date().toISOString().split('T')[0],
+    })
+    .neq('agent_id', ''); // required filter for PostgREST
 
   if (error) throw error;
 }
