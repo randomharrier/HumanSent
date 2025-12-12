@@ -14,6 +14,12 @@ import { ALL_AGENT_IDS, getAgent } from '../agents';
 import { ENV } from '../config';
 import { chanceAdvisor } from '../agents/external/chance-advisor';
 
+type AgentId = (typeof ALL_AGENT_IDS)[number];
+
+function isAgentId(value: string): value is AgentId {
+  return (ALL_AGENT_IDS as readonly string[]).includes(value);
+}
+
 const SlackControlCommandEventSchema = z.object({
   eventId: z.string(),
   channel: z.string(),
@@ -256,7 +262,7 @@ async function runCommand(text: string): Promise<CommandResult> {
       };
     }
 
-    if (!ALL_AGENT_IDS.includes(target)) {
+    if (!isAgentId(target)) {
       return {
         ok: false,
         message: `❌ Unknown agent \`${target}\`. Try \`${prefix} agents list\`.`,
@@ -276,7 +282,7 @@ async function runCommand(text: string): Promise<CommandResult> {
   if (cmd === 'tick') {
     const maybeAgent = rest[0];
     if (maybeAgent) {
-      if (!ALL_AGENT_IDS.includes(maybeAgent)) {
+      if (!isAgentId(maybeAgent)) {
         return {
           ok: false,
           message: `❌ Unknown agent \`${maybeAgent}\`. Try \`${prefix} agents list\`.`,
