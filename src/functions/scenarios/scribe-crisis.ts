@@ -72,7 +72,7 @@ This is a real operational crunch - not panic-inducing but needs quick decisions
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: casey.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',

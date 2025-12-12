@@ -96,7 +96,7 @@ There have been some concerns about growth metrics this quarter that Sarah will 
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: sarahInvestor.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',

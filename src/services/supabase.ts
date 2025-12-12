@@ -180,7 +180,7 @@ export async function snoozeTask(taskId: string, until: Date): Promise<void> {
 
 export async function logAgentAction(action: {
   agentId: string;
-  tickId: string;
+  tickId?: string;
   actionType: string;
   payload: Record<string, unknown>;
   reasoning?: string;
@@ -189,7 +189,7 @@ export async function logAgentAction(action: {
 }): Promise<void> {
   const { error } = await getClient().from('agent_actions').insert({
     agent_id: action.agentId,
-    tick_id: action.tickId,
+    tick_id: action.tickId || null,
     action_type: action.actionType,
     payload: action.payload,
     reasoning: action.reasoning,

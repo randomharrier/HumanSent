@@ -76,7 +76,7 @@ This is a routine but important meeting - good vibes, not stressful.`,
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: alex.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',

@@ -67,7 +67,7 @@ Keep it professional and enthusiastic - this is a positive hiring moment!`,
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: jordan.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',

@@ -70,7 +70,7 @@ Their spouse's attorneys believe messages sent via HumanSent may contain relevan
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: robertLegal.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',

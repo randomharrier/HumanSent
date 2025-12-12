@@ -69,7 +69,7 @@ about team culture.`,
     await step.run('log-scenario-seed', () =>
       db.logAgentAction({
         agentId: casey.id,
-        tickId: 'scenario-seed',
+        tickId: undefined,
         actionType: 'send_email',
         payload: {
           type: 'send_email',
