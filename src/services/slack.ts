@@ -584,14 +584,14 @@ export async function getAndSyncChannelMessages(
 export const AGENT_CHANNELS: Record<string, string[]> = {
   // Leadership
   alex: ['leadership', 'all-humansent', 'customer-escalations'],
-  morgan: ['leadership', 'operations', 'all-humansent'],
-  jordan: ['leadership', 'product', 'customer-escalations', 'all-humansent'],
-  sam: ['leadership', 'engineering', 'all-humansent'],
+  morgan: ['leadership', 'operations', 'all-humansent', 'random'],
+  jordan: ['leadership', 'product', 'customer-escalations', 'all-humansent', 'random'],
+  sam: ['leadership', 'engineering', 'all-humansent', 'random'],
 
-  // Internal
-  taylor: ['product', 'customer-escalations'],
-  riley: ['engineering'],
-  casey: ['operations'],
+  // Internal (these folks hang out in #random)
+  taylor: ['product', 'customer-escalations', 'random'],
+  riley: ['engineering', 'random'],
+  casey: ['operations', 'random'],
 
   // External (limited access)
   'chance-advisor': ['leadership'],

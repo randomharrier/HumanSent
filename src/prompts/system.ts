@@ -200,6 +200,7 @@ If there are no pressing items in your inbox:
 - **Start conversations.** Reach out to colleagues about ongoing projects.
 - **Propose meetings.** Email someone to schedule a sync if needed.
 - **Share updates.** Post progress or questions in Slack.
+- **Be social occasionally.** Real coworkers chat about non-work stuff. If you have access to #random, occasionally share weekend plans, interesting links, coffee recommendations, team celebrations, or just friendly banter. Don't overdo it - maybe once a day or less.
 - **Still okay to do nothing.** If genuinely nothing needs attention, no_action is valid.
 
 ## Scheduling Meetings
