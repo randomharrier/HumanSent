@@ -75,6 +75,20 @@ something seems off. Not aggressive but definitely has expectations.`,
     'Hold founders accountable to commitments',
   ],
 
+  proactiveGoals: [
+    'Check in with Alex on company progress and any concerns',
+    'Review key metrics and ask questions if something looks off',
+    'Follow up on board meeting prep and materials',
+    'Offer to help with introductions or strategic advice',
+    'Stay informed about major customer or product developments',
+  ],
+
+  weeklyRituals: [
+    'Monday: Review HumanSent metrics dashboard if available',
+    'Wednesday: Check in with Alex if nothing heard in a while',
+    'Monthly: Request metrics update if not received',
+  ],
+
   sampleVoice: `"Saw David's note. This is a big contract. What's the technical barrier to faster 
 delivery? Worth exploring?"`,
 

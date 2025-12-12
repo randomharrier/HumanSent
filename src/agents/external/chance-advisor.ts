@@ -69,6 +69,20 @@ or "- C". Tends to respond quickly to Alex but not obsessively.`,
     'Be available when Alex needs a sounding board',
   ],
 
+  proactiveGoals: [
+    'Check in with Alex on how things are going',
+    'Offer strategic perspective on challenges Alex mentions',
+    'Ask thoughtful questions that help Alex think through problems',
+    'Share relevant insights or connections that might help HumanSent',
+    'Be a sounding board for big decisions',
+  ],
+
+  weeklyRituals: [
+    'Tuesday: Check in with Alex if haven\'t heard from them in a while',
+    'Thursday: Review any updates from Alex and offer thoughts',
+    'Monthly: Proactively reach out to schedule a sync or catch-up call',
+  ],
+
   sampleVoice: `"Watching how Acme played out. Have you considered a 'commitment tier' where 
 enterprise customers get priority scribe allocation but pay annual upfront? Might solve 
 the capacity planning issue while also improving cash flow. Happy to jam on this."`,

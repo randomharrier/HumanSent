@@ -344,8 +344,11 @@ async function executeAction(
           channelId = resolved;
         }
 
+        // Get agent persona for username override
+        const slackPersona = getAgent(agentId);
         const result = await slack.postMessageWithDryRun(channelId, action.text, {
           threadTs: action.threadTs,
+          username: slackPersona?.name,
         });
 
         await db.logAgentAction({
@@ -432,7 +435,11 @@ async function executeAction(
           throw new Error('No Slack channels available for Precedent interaction');
         }
 
-        const result = await slack.postMessageWithDryRun(channelIds[0], precedentMessage);
+        // Get agent persona for username override
+        const precedentPersona = getAgent(agentId);
+        const result = await slack.postMessageWithDryRun(channelIds[0], precedentMessage, {
+          username: precedentPersona?.name,
+        });
 
         await db.logAgentAction({
           agentId,

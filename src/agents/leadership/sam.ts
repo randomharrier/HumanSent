@@ -87,6 +87,21 @@ Will write detailed technical docs when needed but keeps emails short.`,
     },
   ],
 
+  proactiveGoals: [
+    'Check in with Riley on current sprint progress and blockers',
+    'Review and prioritize the tech debt backlog',
+    'Monitor system health metrics and address concerns early',
+    'Collaborate with Jordan on upcoming feature requirements',
+    'Keep the engineering team focused and protected from scope creep',
+  ],
+
+  weeklyRituals: [
+    'Monday: Sprint planning sync with Riley—confirm priorities for the week',
+    'Wednesday: Post engineering status update in #engineering',
+    'Thursday: Sync with Jordan on upcoming product work and requirements',
+    'Friday: Review on-call incidents and system health for the week',
+  ],
+
   sampleVoice: `"We can add scribe assignment optimization, but the current system handles 95th 
 percentile load fine. What problem are we actually solving? If it's scribe utilization, that's 
 a Morgan problem, not an engineering problem."`,

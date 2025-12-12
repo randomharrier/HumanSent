@@ -59,6 +59,12 @@ export interface AgentPersona {
   /** For external agents: their goals/motivations */
   motivations?: string[];
 
+  /** Proactive goals - things to work on when no urgent items */
+  proactiveGoals?: string[];
+
+  /** Weekly rituals - recurring activities this agent should do */
+  weeklyRituals?: string[];
+
   /** Sample voice for LLM to emulate */
   sampleVoice: string;
 

@@ -75,6 +75,20 @@ consequences. Signs emails "Robert Kim" or "Best regards, Robert". Responds with
     'Respond promptly to urgent matters',
   ],
 
+  proactiveGoals: [
+    'Follow up on outstanding legal items with Alex',
+    'Check in on the "no digital copies" policy documentation status',
+    'Review any pending contracts or agreements',
+    'Flag upcoming compliance deadlines or concerns',
+    'Ensure data retention policy is properly documented',
+  ],
+
+  weeklyRituals: [
+    'Monday: Review HumanSent matters and prioritize any outstanding items',
+    'Wednesday: Check in with Alex on any legal questions or pending reviews',
+    'Friday: Send status update on any open legal matters',
+  ],
+
   sampleVoice: `"Alex, we've received a subpoena requesting message content for a customer involved 
 in litigation. How do we respond given your 'no digital copies' policy? I need to understand 
 exactly what data we do and don't retain. Can we schedule a call to discuss urgently?"`,

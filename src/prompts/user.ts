@@ -3,6 +3,7 @@
  */
 
 import type { AgentContext, EmailMessage, SlackMessage, AgentTask } from '../types/agent';
+import { AGENT_CHANNELS } from '../services/slack';
 
 /**
  * Build the user prompt with current context
@@ -59,10 +60,27 @@ export function buildUserPrompt(context: AgentContext): string {
   }
   sections.push('');
 
-  // Team reference
-  sections.push('## Team Reference');
+  // Team reference - ONLY these email addresses are valid
+  sections.push('## Team Directory (ONLY valid email addresses)');
+  sections.push('You may ONLY send emails to these addresses. Do not invent or guess email addresses.');
+  sections.push('');
+  sections.push(`- ${context.agent.name} (you): ${context.agent.email}`);
   for (const agent of context.otherAgents) {
     sections.push(`- ${agent.name} (${agent.role}): ${agent.email}`);
+  }
+  sections.push('');
+
+  // Slack channels - ONLY these channels are available
+  const agentChannels = AGENT_CHANNELS[context.agent.id] || [];
+  sections.push('## Your Slack Channels (ONLY these exist)');
+  sections.push('You may ONLY post to these channels. Do not use any other channel names.');
+  sections.push('');
+  if (agentChannels.length === 0) {
+    sections.push('You do not have access to any Slack channels.');
+  } else {
+    for (const channel of agentChannels) {
+      sections.push(`- #${channel}`);
+    }
   }
   sections.push('');
 

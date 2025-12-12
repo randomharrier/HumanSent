@@ -394,7 +394,7 @@ export const AGENT_CHANNELS: Record<string, string[]> = {
   'chance-advisor': ['leadership'],
   'sarah-investor': [], // Investor doesn't have Slack access typically
   'karen-customer': [], // Customer doesn't have Slack access
-  'robert-legal': ['leadership'],
+  'robert-legal': ['leadership', 'legal'],
 };
 
 /**

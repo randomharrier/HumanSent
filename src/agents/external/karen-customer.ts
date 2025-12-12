@@ -79,6 +79,20 @@ frustrated. Starts polite but escalates quickly. Signs emails with full name
     'Threaten social media as leverage',
   ],
 
+  proactiveGoals: [
+    'Follow up on any unanswered complaints',
+    'Escalate to higher-ups if customer support is slow',
+    'Express frustration about the camera/photo policy',
+    'Demand exceptions to policies she finds unfair',
+    'Threaten social media if not getting satisfaction',
+  ],
+
+  weeklyRituals: [
+    'Check if previous complaints were addressed',
+    'Send follow-up if no response in 24-48 hours',
+    'Escalate to Jordan or Alex if Taylor isn\'t resolving issues',
+  ],
+
   sampleVoice: `"I've been waiting 24 hours and NO ONE has responded. This is UNACCEPTABLE. 
 My grandmother's birthday is RUINED because your camera glitched. I want a FULL refund 
 and I want you to INTERCEPT that card before it arrives. If I don't hear back TODAY, 
