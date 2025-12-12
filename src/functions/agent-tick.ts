@@ -87,7 +87,7 @@ export const agentTickFunction = inngest.createFunction(
 
       if (!state) {
         const newState = await step.run('init-state', () =>
-          db.upsertAgentState(agentId, persona, { budgetRemaining: 100 })
+          db.upsertAgentState(agentId, persona, { budgetRemaining: ENV.dailyBudget })
         );
         state = hydrateState(newState as unknown as Record<string, unknown>);
       }
@@ -95,6 +95,17 @@ export const agentTickFunction = inngest.createFunction(
       // Respect DB pause/resume (agent_state.is_active)
       if (!state.isActive) {
         return { status: 'skipped', reason: 'Agent is inactive' };
+      }
+
+      // Enforce minimum tick interval unless forced.
+      if (!force && state.lastTickAt) {
+        const minutesSinceLastTick = (Date.now() - state.lastTickAt.getTime()) / (60 * 1000);
+        if (minutesSinceLastTick < ENV.tickIntervalMinutes) {
+          return {
+            status: 'skipped',
+            reason: `Tick interval not reached (${Math.floor(minutesSinceLastTick)}m < ${ENV.tickIntervalMinutes}m)`,
+          };
+        }
       }
 
       // Create tick record AFTER agent_state exists (agent_ticks has FK to agent_state)
@@ -106,7 +117,7 @@ export const agentTickFunction = inngest.createFunction(
       const budgetResetDate = state.budgetResetAt.toISOString().split('T')[0];
       if (budgetResetDate !== today) {
         const resetState = await step.run('reset-budget', () =>
-          db.upsertAgentState(agentId, persona, { budgetRemaining: 100 })
+          db.upsertAgentState(agentId, persona, { budgetRemaining: ENV.dailyBudget })
         );
         state = hydrateState(resetState as unknown as Record<string, unknown>);
       }

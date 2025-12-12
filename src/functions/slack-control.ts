@@ -254,10 +254,10 @@ async function runCommand(text: string): Promise<CommandResult> {
 
     if (target === 'all') {
       await ensureAllAgentRowsExist();
-      await db.resetAllBudgetsAllAgents(100);
+      await db.resetAllBudgetsAllAgents(ENV.dailyBudget);
       return {
         ok: true,
-        message: '✅ Reset budgets to *100* for *all agents*.',
+        message: `✅ Reset budgets to *${ENV.dailyBudget}* for *all agents*.`,
         audit: { command: 'budget reset all', args: [] },
       };
     }
@@ -271,10 +271,10 @@ async function runCommand(text: string): Promise<CommandResult> {
     }
 
     await ensureAllAgentRowsExist();
-    await db.resetAgentBudget(target, 100);
+    await db.resetAgentBudget(target, ENV.dailyBudget);
     return {
       ok: true,
-      message: `✅ Reset budget to *100* for \`${target}\`.`,
+      message: `✅ Reset budget to *${ENV.dailyBudget}* for \`${target}\`.`,
       audit: { command: 'budget reset', args: [target] },
     };
   }

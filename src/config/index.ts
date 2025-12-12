@@ -14,6 +14,9 @@ export const ENV = {
   /** Tick interval in minutes */
   tickIntervalMinutes: parseInt(process.env.AGENT_TICK_INTERVAL_MINUTES || '30', 10),
 
+  /** Daily action budget per agent (resets daily) */
+  dailyBudget: parseInt(process.env.AGENT_DAILY_BUDGET || '250', 10),
+
   /** Business hours start (24h format) */
   businessHoursStart: parseInt(process.env.AGENT_BUSINESS_HOURS_START || '9', 10),
 
