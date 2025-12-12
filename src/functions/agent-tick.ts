@@ -170,10 +170,19 @@ export const agentTickFunction = inngest.createFunction(
         // Get open tasks
         const openTasks = await db.getOpenTasks(agentId);
 
+        // Get recent actions (what this agent has done recently)
+        const rawRecentActions = await db.getRecentActions(agentId, 48);
+        const recentActions = rawRecentActions.map((a) => ({
+          actionType: a.actionType,
+          summary: summarizeAction(a.actionType, a.payload),
+          timestamp: a.createdAt,
+        }));
+
         return {
           recentEmails,
           recentSlackMessages,
           openTasks,
+          recentActions,
           currentTime: new Date().toISOString(),
           dayOfWeek: getDayOfWeek(),
           isBusinessHours: isBusinessHours(),
@@ -187,6 +196,9 @@ export const agentTickFunction = inngest.createFunction(
         recentEmails: (rawContext.recentEmails as unknown as Record<string, unknown>[]).map(hydrateEmail),
         recentSlackMessages: (rawContext.recentSlackMessages as unknown as Record<string, unknown>[]).map(hydrateSlackMessage),
         openTasks: (rawContext.openTasks as unknown as Record<string, unknown>[]).map(hydrateTask),
+        recentActions: (rawContext.recentActions as unknown as Array<{ actionType: string; summary: string; timestamp: string }>).map(
+          (a) => ({ ...a, timestamp: new Date(a.timestamp) })
+        ),
         currentTime: new Date(rawContext.currentTime),
         dayOfWeek: rawContext.dayOfWeek,
         isBusinessHours: rawContext.isBusinessHours,
@@ -234,13 +246,41 @@ export const agentTickFunction = inngest.createFunction(
         }
       }
 
-      // Step 5: Update state
+      // Step 5: Update state (including memory)
       const newBudget = Math.max(0, state.budgetRemaining - budgetUsed);
+
+      // Merge memory updates from LLM response into agent notes
+      const currentNotes = (state.notes || {}) as {
+        observations?: string[];
+        lastUpdated?: string;
+      };
+      const memoryUpdates = llmResponse.output.memoryUpdates;
+
+      let updatedNotes = { ...currentNotes };
+      if (memoryUpdates) {
+        // Add new observations (keep last 20 to avoid unbounded growth)
+        const existingObs = currentNotes.observations || [];
+        const newObs = memoryUpdates.observations || [];
+        const forgetSet = new Set(memoryUpdates.forget || []);
+
+        // Filter out forgotten items and add new ones
+        const filteredObs = existingObs.filter(
+          (obs) => !forgetSet.has(obs) && !newObs.some((n) => n.toLowerCase() === obs.toLowerCase())
+        );
+        const mergedObs = [...newObs, ...filteredObs].slice(0, 20);
+
+        updatedNotes = {
+          observations: mergedObs,
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+
       await step.run('update-state', () =>
         db.upsertAgentState(agentId, persona, {
           lastTickAt: new Date(),
           lastTickId: tickId,
           budgetRemaining: newBudget,
+          notes: updatedNotes,
         })
       );
 
@@ -349,6 +389,49 @@ async function executeAction(
           threadId: action.conversationId,
         });
 
+        // Save sent email to messages table for agent memory
+        // This ensures agents see their own sent emails in context
+        if (!result.dryRun && result.messageId) {
+          const conversationId = result.threadId || result.messageId;
+
+          // Extract recipient agent IDs from email addresses
+          const toAgents = action.to
+            .filter((email: string) => email.endsWith('@humansent.co'))
+            .map((email: string) => email.replace('@humansent.co', ''));
+
+          // Upsert conversation first (messages have FK to conversations)
+          await db.upsertConversation({
+            id: `email:${conversationId}`,
+            type: 'email',
+            subject: action.subject,
+            participants: [agentId, ...toAgents],
+            lastActivityAt: new Date(),
+            messageCount: 1,
+            metadata: { threadId: result.threadId },
+          });
+
+          await db.upsertMessages([
+            {
+              id: `email:${result.messageId}`,
+              conversationId: `email:${conversationId}`,
+              type: 'email',
+              fromAgent: agentId,
+              toAgents,
+              subject: action.subject,
+              bodyPreview: action.body.slice(0, 500),
+              fullBody: action.body,
+              timestamp: new Date(),
+              isRead: false,
+              metadata: {
+                messageId: result.messageId,
+                threadId: result.threadId,
+                to: action.to,
+                cc: action.cc,
+              },
+            },
+          ]);
+        }
+
         await db.logAgentAction({
           agentId,
           tickId,
@@ -363,6 +446,7 @@ async function executeAction(
       case 'send_slack_message': {
         // Resolve channel name to ID if needed
         let channelId = action.channel;
+        const channelName = action.channel.replace(/^#/, '');
         if (action.channel.startsWith('#')) {
           const resolved = await slack.getChannelIdByName(action.channel);
           if (!resolved) {
@@ -377,6 +461,44 @@ async function executeAction(
           threadTs: action.threadTs,
           username: slackPersona?.name,
         });
+
+        // Save sent message to messages table for agent memory
+        // This ensures agents see their own sent messages in context
+        if (!result.dryRun) {
+          const conversationId = action.threadTs
+            ? `slack:${channelId}:${action.threadTs}`
+            : `slack:${channelId}:${result.ts}`;
+
+          // Upsert conversation first (messages have FK to conversations)
+          await db.upsertConversation({
+            id: conversationId,
+            type: 'slack',
+            subject: `#${channelName}`,
+            participants: [agentId],
+            lastActivityAt: new Date(),
+            messageCount: 1,
+            metadata: { channelName, channelId },
+          });
+
+          await db.upsertMessages([
+            {
+              id: `slack:${channelId}:${result.ts}`,
+              conversationId,
+              type: 'slack',
+              fromAgent: agentId,
+              bodyPreview: action.text.slice(0, 500),
+              fullBody: action.text,
+              timestamp: new Date(),
+              isRead: true,
+              metadata: {
+                channel: channelId,
+                channelName,
+                ts: result.ts,
+                threadTs: action.threadTs,
+              },
+            },
+          ]);
+        }
 
         await db.logAgentAction({
           agentId,
@@ -528,5 +650,38 @@ function getActionCost(actionType: AgentAction['type']): number {
     no_action: 0,
   };
   return costs[actionType];
+}
+
+/**
+ * Create a human-readable summary of an action for context
+ */
+function summarizeAction(actionType: string, payload: Record<string, unknown>): string {
+  switch (actionType) {
+    case 'send_email': {
+      const to = (payload.to as string[])?.join(', ') || 'unknown';
+      const subject = (payload.subject as string) || '(no subject)';
+      return `Sent email to ${to}: "${subject}"`;
+    }
+    case 'send_slack_message': {
+      const channel = (payload.channel as string) || 'unknown';
+      const text = (payload.text as string)?.slice(0, 50) || '';
+      return `Posted in ${channel}: "${text}..."`;
+    }
+    case 'create_task': {
+      const title = (payload.title as string) || 'untitled';
+      const assignedTo = (payload.assignedTo as string) || 'unknown';
+      return `Created task "${title}" for ${assignedTo}`;
+    }
+    case 'mark_task_done':
+      return `Marked task as done`;
+    case 'snooze_task':
+      return `Snoozed task until ${payload.until || 'later'}`;
+    case 'use_precedent':
+      return `Used Precedent: ${payload.intent || 'query'}`;
+    case 'no_action':
+      return `No action: ${payload.reason || 'nothing to do'}`;
+    default:
+      return `${actionType}`;
+  }
 }
 

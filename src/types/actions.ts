@@ -77,10 +77,23 @@ export const AgentReasoningSchema = z
   })
   .optional();
 
+// Memory updates for persistent agent memory
+export const MemoryUpdatesSchema = z
+  .object({
+    // Key observations to remember for future ticks
+    // e.g., "Alex seems stressed about investor meeting", "Asked about data policy - 3rd time"
+    observations: z.array(z.string()).optional(),
+    // Items to stop tracking (already resolved or no longer relevant)
+    forget: z.array(z.string()).optional(),
+  })
+  .optional();
+
 // Complete agent output schema
 export const AgentOutputSchema = z.object({
   reasoning: AgentReasoningSchema,
   actions: z.array(ActionSchema),
+  // Memory updates to persist across ticks
+  memoryUpdates: MemoryUpdatesSchema,
 });
 
 // ============================================
@@ -97,6 +110,7 @@ export type NoAction = z.infer<typeof NoActionSchema>;
 
 export type AgentAction = z.infer<typeof ActionSchema>;
 export type AgentReasoning = z.infer<typeof AgentReasoningSchema>;
+export type MemoryUpdates = z.infer<typeof MemoryUpdatesSchema>;
 export type AgentOutput = z.infer<typeof AgentOutputSchema>;
 
 // ============================================

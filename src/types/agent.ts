@@ -126,6 +126,13 @@ export interface AgentTick {
   rawLlmResponse: string | null;
 }
 
+/** Summary of a recent action taken by the agent */
+export interface RecentAction {
+  actionType: string;
+  summary: string;
+  timestamp: Date;
+}
+
 /**
  * Context provided to an agent for decision-making
  */
@@ -141,6 +148,9 @@ export interface AgentContext {
 
   /** Open tasks assigned to this agent */
   openTasks: AgentTask[];
+
+  /** Recent actions taken by this agent (last 24-48h) */
+  recentActions: RecentAction[];
 
   /** Current time context */
   currentTime: Date;

@@ -2,7 +2,7 @@
  * User prompt assembly for agent context
  */
 
-import type { AgentContext, EmailMessage, SlackMessage, AgentTask } from '../types/agent';
+import type { AgentContext, EmailMessage, SlackMessage, AgentTask, RecentAction } from '../types/agent';
 import { AGENT_CHANNELS } from '../services/slack';
 
 /**
@@ -25,6 +25,27 @@ export function buildUserPrompt(context: AgentContext): string {
   // Budget
   sections.push('## Your Budget');
   sections.push(`- Remaining today: ${context.state.budgetRemaining}/100`);
+  sections.push('');
+
+  // Memory (persistent observations from previous ticks)
+  const notes = context.state.notes as { observations?: string[]; lastUpdated?: string } | undefined;
+  if (notes?.observations && notes.observations.length > 0) {
+    sections.push('## Your Memory (things you noted previously)');
+    for (const obs of notes.observations) {
+      sections.push(`- ${obs}`);
+    }
+    sections.push('');
+  }
+
+  // Recent actions (what you've done recently)
+  sections.push('## Your Recent Actions (last 48h)');
+  if (context.recentActions.length === 0) {
+    sections.push('No recent actions.');
+  } else {
+    for (const action of context.recentActions.slice(0, 10)) {
+      sections.push(`- ${formatTime(action.timestamp)}: ${action.summary}`);
+    }
+  }
   sections.push('');
 
   // Recent emails
