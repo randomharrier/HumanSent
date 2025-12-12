@@ -62,6 +62,7 @@ export const agentTickFunction = inngest.createFunction(
   async ({ event, step }) => {
     const { agentId, force } = event.data;
     const startTime = Date.now();
+    let tickIdForError: string | undefined;
 
     // Validate agent exists
     const persona = getAgent(agentId);
@@ -79,9 +80,6 @@ export const agentTickFunction = inngest.createFunction(
       return { status: 'skipped', reason: 'Outside business hours' };
     }
 
-    // Create tick record
-    const tickId = await step.run('create-tick', () => db.createTick(agentId));
-
     try {
       // Step 1: Ensure agent state exists
       const rawState = await step.run('get-state', () => db.getAgentState(agentId));
@@ -96,15 +94,12 @@ export const agentTickFunction = inngest.createFunction(
 
       // Respect DB pause/resume (agent_state.is_active)
       if (!state.isActive) {
-        await step.run('update-tick-inactive', () =>
-          db.updateTick(tickId, {
-            status: 'skipped',
-            completedAt: new Date(),
-            errorMessage: 'Agent is inactive',
-          })
-        );
         return { status: 'skipped', reason: 'Agent is inactive' };
       }
+
+      // Create tick record AFTER agent_state exists (agent_ticks has FK to agent_state)
+      const tickId = await step.run('create-tick', () => db.createTick(agentId));
+      tickIdForError = tickId;
 
       // Check and reset daily budget if needed
       const today = new Date().toISOString().split('T')[0];
@@ -263,13 +258,16 @@ export const agentTickFunction = inngest.createFunction(
       // Log error and mark tick as failed
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      await step.run('fail-tick', () =>
-        db.updateTick(tickId, {
-          status: 'failed',
-          completedAt: new Date(),
-          errorMessage,
-        })
-      );
+      const tid = tickIdForError;
+      if (tid) {
+        await step.run('fail-tick', () =>
+          db.updateTick(tid, {
+            status: 'failed',
+            completedAt: new Date(),
+            errorMessage,
+          })
+        );
+      }
 
       throw error;
     }
