@@ -372,6 +372,203 @@ export async function postMessageWithDryRun(
 }
 
 // ============================================
+// Message Syncing to Supabase
+// ============================================
+
+import * as db from './supabase';
+
+/**
+ * Map Slack user ID to agent ID (or return the Slack user ID if not found)
+ */
+async function resolveUserToAgent(userId: string): Promise<{ agentId?: string; external?: string }> {
+  // Try to find user by ID
+  const client = getClient();
+  try {
+    const result = await client.users.info({ user: userId });
+    const email = result.user?.profile?.email;
+    
+    if (email?.endsWith('@humansent.co')) {
+      // Extract agent ID from email (e.g., alex@humansent.co -> alex)
+      const agentId = email.replace('@humansent.co', '');
+      return { agentId };
+    }
+    
+    // Return display name or email as external identifier
+    return { external: result.user?.real_name || result.user?.name || userId };
+  } catch {
+    return { external: userId };
+  }
+}
+
+/**
+ * Sync Slack messages to Supabase (messages + conversations tables)
+ * Call this after fetching messages for an agent
+ */
+export async function syncSlackMessagesToSupabase(
+  messages: SlackMessage[],
+  channelIdToName: Record<string, string>
+): Promise<{ messagesSynced: number; conversationsUpdated: number }> {
+  if (messages.length === 0) {
+    return { messagesSynced: 0, conversationsUpdated: 0 };
+  }
+
+  // Group messages by channel for sync state tracking
+  const messagesByChannel = new Map<string, SlackMessage[]>();
+  for (const msg of messages) {
+    const existing = messagesByChannel.get(msg.channel) || [];
+    existing.push(msg);
+    messagesByChannel.set(msg.channel, existing);
+  }
+
+  // Build user cache to avoid repeated API calls
+  const userCache = new Map<string, { agentId?: string; external?: string }>();
+  
+  async function getUser(userId: string) {
+    if (!userCache.has(userId)) {
+      userCache.set(userId, await resolveUserToAgent(userId));
+    }
+    return userCache.get(userId)!;
+  }
+
+  // Track conversations (threads) we've seen
+  const conversationsToUpdate = new Map<string, {
+    participants: Set<string>;
+    lastActivityAt: Date;
+    messageCount: number;
+    channelName: string;
+  }>();
+
+  // Transform messages for storage
+  const messagesToStore: Array<{
+    id: string;
+    conversationId?: string;
+    type: 'email' | 'slack';
+    fromAgent?: string;
+    fromExternal?: string;
+    toAgents?: string[];
+    subject?: string;
+    bodyPreview: string;
+    fullBody?: string;
+    timestamp: Date;
+    isRead?: boolean;
+    metadata?: Record<string, unknown>;
+  }> = [];
+
+  for (const msg of messages) {
+    const user = await getUser(msg.userId);
+    const channelName = channelIdToName[msg.channel] || msg.channel;
+    
+    // Determine conversation ID (thread or channel-based)
+    const conversationId = msg.threadTs || `${msg.channel}:${msg.ts}`;
+    
+    messagesToStore.push({
+      id: `slack:${msg.channel}:${msg.ts}`,
+      conversationId: `slack:${conversationId}`,
+      type: 'slack',
+      fromAgent: user.agentId,
+      fromExternal: user.external,
+      bodyPreview: msg.text.slice(0, 500),
+      fullBody: msg.text,
+      timestamp: msg.timestamp,
+      isRead: true, // Slack messages are considered "read" by all
+      metadata: {
+        channel: msg.channel,
+        channelName,
+        ts: msg.ts,
+        threadTs: msg.threadTs,
+        userId: msg.userId,
+        userName: msg.userName,
+      },
+    });
+
+    // Track conversation updates
+    const convKey = `slack:${conversationId}`;
+    const existing = conversationsToUpdate.get(convKey);
+    if (existing) {
+      if (user.agentId) existing.participants.add(user.agentId);
+      if (msg.timestamp > existing.lastActivityAt) {
+        existing.lastActivityAt = msg.timestamp;
+      }
+      existing.messageCount++;
+    } else {
+      const participants = new Set<string>();
+      if (user.agentId) participants.add(user.agentId);
+      conversationsToUpdate.set(convKey, {
+        participants,
+        lastActivityAt: msg.timestamp,
+        messageCount: 1,
+        channelName,
+      });
+    }
+  }
+
+  // Update conversations FIRST (messages have FK to conversations)
+  for (const [convId, conv] of conversationsToUpdate) {
+    await db.upsertConversation({
+      id: convId,
+      type: 'slack',
+      subject: `#${conv.channelName}`,
+      participants: Array.from(conv.participants),
+      lastActivityAt: conv.lastActivityAt,
+      messageCount: conv.messageCount,
+      metadata: { channelName: conv.channelName },
+    });
+  }
+
+  // Store messages AFTER conversations exist
+  await db.upsertMessages(messagesToStore);
+
+  // Update sync state for each channel
+  for (const [channelId, channelMessages] of messagesByChannel) {
+    // Find the latest message timestamp
+    const latestTs = channelMessages.reduce((latest, msg) => {
+      return msg.ts > latest ? msg.ts : latest;
+    }, '0');
+
+    const channelName = channelIdToName[channelId] || channelId;
+    await db.updateSlackSyncState(channelId, channelName, latestTs);
+  }
+
+  return {
+    messagesSynced: messagesToStore.length,
+    conversationsUpdated: conversationsToUpdate.size,
+  };
+}
+
+/**
+ * Get messages from channels and sync to Supabase
+ * Convenience wrapper that fetches + syncs in one call
+ */
+export async function getAndSyncChannelMessages(
+  channelIds: string[],
+  options?: {
+    limitPerChannel?: number;
+    hoursBack?: number;
+  }
+): Promise<{ messages: SlackMessage[]; syncStats: { messagesSynced: number; conversationsUpdated: number } }> {
+  // First get all channels to build name mapping
+  const channels = await listChannels();
+  const channelIdToName: Record<string, string> = {};
+  for (const ch of channels) {
+    channelIdToName[ch.id] = ch.name;
+  }
+
+  // Fetch messages
+  const messages = await getMessagesFromChannels(channelIds, options);
+
+  // Add channel names to messages
+  const messagesWithNames = messages.map(msg => ({
+    ...msg,
+    channelName: channelIdToName[msg.channel],
+  }));
+
+  // Sync to Supabase
+  const syncStats = await syncSlackMessagesToSupabase(messagesWithNames, channelIdToName);
+
+  return { messages: messagesWithNames, syncStats };
+}
+
+// ============================================
 // Channel Mapping (for agents)
 // ============================================
 

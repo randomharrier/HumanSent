@@ -130,15 +130,20 @@ export const agentTickFunction = inngest.createFunction(
           console.error(`Failed to fetch emails for ${agentId}:`, error);
         }
 
-        // Get recent Slack messages from relevant channels
+        // Get recent Slack messages from relevant channels and sync to Supabase
         let recentSlackMessages: SlackMessage[] = [];
         try {
           const channelIds = await slack.getAgentChannelIds(agentId);
           if (channelIds.length > 0) {
-            recentSlackMessages = await slack.getMessagesFromChannels(channelIds, {
+            const { messages, syncStats } = await slack.getAndSyncChannelMessages(channelIds, {
               limitPerChannel: 10,
               hoursBack: 24,
             });
+            recentSlackMessages = messages;
+            
+            if (syncStats.messagesSynced > 0) {
+              console.info(`Synced ${syncStats.messagesSynced} Slack messages, ${syncStats.conversationsUpdated} conversations for ${agentId}`);
+            }
           }
         } catch (error) {
           console.error(`Failed to fetch Slack messages for ${agentId}:`, error);
@@ -271,7 +276,8 @@ export const agentTickAllFunction = inngest.createFunction(
   [
     { event: 'agent/tick.all' },
     // Schedule: Every 30 minutes during business hours, M-F
-    { cron: '*/5 6-23 * * *' }, // Every 5 min, 6am-11pm, every day (for testing)
+    // Run every 5 min, 24/7. The isBusinessHours() check in code handles timezone.
+    { cron: '*/5 * * * *' }, // Every 5 min, every day
   ],
   async ({ event, step }) => {
     const force = event?.data?.force ?? false;

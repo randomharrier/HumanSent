@@ -406,6 +406,71 @@ export async function updateScenarioStatus(
 }
 
 // ============================================
+// Slack Sync State
+// ============================================
+
+export async function getSlackSyncState(
+  channelId: string
+): Promise<{ lastMessageTs: string | null; lastSyncAt: Date | null } | null> {
+  const { data, error } = await getClient()
+    .from('slack_sync_state')
+    .select('last_message_ts, last_sync_at')
+    .eq('channel_id', channelId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+
+  return {
+    lastMessageTs: data.last_message_ts as string | null,
+    lastSyncAt: data.last_sync_at ? new Date(data.last_sync_at as string) : null,
+  };
+}
+
+export async function updateSlackSyncState(
+  channelId: string,
+  channelName: string,
+  lastMessageTs: string
+): Promise<void> {
+  const { error } = await getClient().from('slack_sync_state').upsert({
+    channel_id: channelId,
+    channel_name: channelName,
+    last_message_ts: lastMessageTs,
+    last_sync_at: new Date().toISOString(),
+  });
+
+  if (error) throw error;
+}
+
+// ============================================
+// Conversations
+// ============================================
+
+export async function upsertConversation(conversation: {
+  id: string;
+  type: 'email' | 'slack';
+  subject?: string;
+  participants: string[];
+  lastActivityAt: Date;
+  messageCount: number;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  const { error } = await getClient().from('conversations').upsert({
+    id: conversation.id,
+    type: conversation.type,
+    subject: conversation.subject,
+    participants: conversation.participants,
+    last_activity_at: conversation.lastActivityAt.toISOString(),
+    message_count: conversation.messageCount,
+    metadata: conversation.metadata ?? {},
+  }, { onConflict: 'id' });
+
+  if (error) throw error;
+}
+
+// ============================================
 // Gmail Sync State
 // ============================================
 
