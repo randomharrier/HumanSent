@@ -27,9 +27,18 @@
       ]
     }
   },
+  "event_subscriptions": {
+    "request_url": "https://humansent-production.up.railway.app/api/slack/events",
+    "bot_events": [
+      "message.groups",
+      "message.channels"
+    ]
+  },
   "settings": {
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,
     "token_rotation_enabled": false
   }
 }
+
+

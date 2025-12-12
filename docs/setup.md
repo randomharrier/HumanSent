@@ -152,6 +152,16 @@ users:read.email
 ```bash
 SLACK_BOT_TOKEN=xoxb-your-token-here
 SLACK_SIGNING_SECRET=your-signing-secret
+
+# Slack Control Channel (recommended)
+# Create a private channel (e.g. #agent-control), invite the bot, then copy the Channel ID.
+SLACK_CONTROL_CHANNEL_ID=C0123456789
+# Allowlist who can issue commands (Slack Member IDs, comma-separated)
+SLACK_CONTROL_ALLOWED_USER_IDS=U0123456789
+# Command prefix to listen for in the control channel
+SLACK_CONTROL_COMMAND_PREFIX=!hs
+# After triggering a scenario, auto-trigger `agent/tick.all` so agents react immediately
+SLACK_CONTROL_AUTOTICK_AFTER_SCENARIO=true
 ```
 
 ### 8. Invite Bot to Channels
@@ -160,6 +170,31 @@ In Slack, invite the bot to each channel:
 ```
 /invite @HumanSent Agent Bot
 ```
+
+### 9. Enable Slack Events (for Slack-based control)
+
+In Slack App settings → **Event Subscriptions**:
+
+1. Toggle **Enable Events** on
+2. Set **Request URL** to:
+   - `https://<your-railway-domain>/api/slack/events`
+3. Under **Subscribe to bot events**, add:
+   - `message.groups` (required for private control channels)
+   - `message.channels` (optional if you want a public control channel)
+4. Save changes and reinstall the app if Slack prompts you
+
+### 10. Use the control channel
+
+In your private control channel (e.g. `#agent-control`):
+
+- `!hs help` — list all commands
+- `!hs health` — check API + Supabase connectivity
+- `!hs status` — show current runtime state (active/inactive agents, dry run mode)
+- `!hs tick` — trigger all agents immediately
+- `!hs tick alex` — tick one agent
+- `!hs pause` / `!hs resume` — pause/resume agents (DB-backed)
+- `!hs budget reset all` / `!hs budget reset alex` — reset budgets
+- `!hs scenarios` / `!hs scenario <name>` — list/trigger scenarios
 
 ---
 

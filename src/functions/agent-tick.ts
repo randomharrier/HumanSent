@@ -94,6 +94,18 @@ export const agentTickFunction = inngest.createFunction(
         state = hydrateState(newState as unknown as Record<string, unknown>);
       }
 
+      // Respect DB pause/resume (agent_state.is_active)
+      if (!state.isActive) {
+        await step.run('update-tick-inactive', () =>
+          db.updateTick(tickId, {
+            status: 'skipped',
+            completedAt: new Date(),
+            errorMessage: 'Agent is inactive',
+          })
+        );
+        return { status: 'skipped', reason: 'Agent is inactive' };
+      }
+
       // Check and reset daily budget if needed
       const today = new Date().toISOString().split('T')[0];
       const budgetResetDate = state.budgetResetAt.toISOString().split('T')[0];
