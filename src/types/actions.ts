@@ -47,8 +47,13 @@ export const SnoozeTaskActionSchema = z.object({
 
 export const UsePrecedentActionSchema = z.object({
   type: z.literal('use_precedent'),
-  intent: z.enum(['briefing', 'urgent', 'situations', 'vips', 'calendar']),
+  // 'query' allows natural follow-up questions; others are structured shortcuts
+  intent: z.enum(['briefing', 'urgent', 'situations', 'vips', 'calendar', 'query']),
+  // For 'query' intent, this is the natural language question to ask @Precedent
+  query: z.string().optional(),
   extraContext: z.string().optional(),
+  // Thread timestamp to reply in (for follow-up questions)
+  threadTs: z.string().optional(),
 });
 
 export const NoActionSchema = z.object({

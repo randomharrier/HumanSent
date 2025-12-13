@@ -11,8 +11,11 @@ export const ENV = {
   /** Agent timezone for business hours calculation */
   timezone: process.env.AGENT_TIMEZONE || 'America/Los_Angeles',
 
-  /** Tick interval in minutes */
+  /** Default tick interval in minutes */
   tickIntervalMinutes: parseInt(process.env.AGENT_TICK_INTERVAL_MINUTES || '30', 10),
+
+  /** Leadership agents tick more frequently (for Precedent testing) */
+  leadershipTickIntervalMinutes: parseInt(process.env.LEADERSHIP_TICK_INTERVAL_MINUTES || '10', 10),
 
   /** Daily action budget per agent (resets daily) */
   dailyBudget: parseInt(process.env.AGENT_DAILY_BUDGET || '250', 10),
@@ -31,7 +34,20 @@ export const ENV = {
 
   /** Disabled agents (comma-separated) */
   disabledAgents: (process.env.DISABLED_AGENTS || '').split(',').filter(Boolean),
+
+  /** Leadership agents (tick faster, use Precedent) */
+  leadershipAgents: ['alex', 'morgan', 'jordan', 'sam'] as readonly string[],
 } as const;
+
+/**
+ * Get tick interval for a specific agent
+ */
+export function getTickIntervalMinutes(agentId: string): number {
+  if (ENV.leadershipAgents.includes(agentId)) {
+    return ENV.leadershipTickIntervalMinutes;
+  }
+  return ENV.tickIntervalMinutes;
+}
 
 /**
  * Check if current time is within business hours

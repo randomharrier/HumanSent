@@ -7,7 +7,7 @@
 import { inngest } from '../inngest-client';
 import { getAgent, getOtherAgents, ALL_AGENT_IDS } from '../agents';
 import { gmail, slack, llm, db } from '../services';
-import { isBusinessHours, getDayOfWeek, ENV } from '../config';
+import { isBusinessHours, getDayOfWeek, ENV, getTickIntervalMinutes } from '../config';
 import type { AgentContext, AgentState, EmailMessage, SlackMessage, AgentTask } from '../types/agent';
 import type { AgentAction, ActionResult } from '../types/actions';
 
@@ -98,12 +98,14 @@ export const agentTickFunction = inngest.createFunction(
       }
 
       // Enforce minimum tick interval unless forced.
+      // Leadership agents tick faster (for Precedent testing)
+      const tickInterval = getTickIntervalMinutes(agentId);
       if (!force && state.lastTickAt) {
         const minutesSinceLastTick = (Date.now() - state.lastTickAt.getTime()) / (60 * 1000);
-        if (minutesSinceLastTick < ENV.tickIntervalMinutes) {
+        if (minutesSinceLastTick < tickInterval) {
           return {
             status: 'skipped',
-            reason: `Tick interval not reached (${Math.floor(minutesSinceLastTick)}m < ${ENV.tickIntervalMinutes}m)`,
+            reason: `Tick interval not reached (${Math.floor(minutesSinceLastTick)}m < ${tickInterval}m)`,
           };
         }
       }
@@ -380,6 +382,28 @@ async function executeAction(
   try {
     switch (action.type) {
       case 'send_email': {
+        // HARD BLOCK: Never send emails outside @humansent.co
+        const allRecipients = [...action.to, ...(action.cc || [])];
+        const externalEmails = allRecipients.filter(
+          (email) => !email.endsWith('@humansent.co')
+        );
+        
+        if (externalEmails.length > 0) {
+          const errorMessage = `BLOCKED: Attempted to email external addresses: ${externalEmails.join(', ')}. Agents may ONLY email @humansent.co addresses.`;
+          console.error(`[SECURITY] ${agentId}: ${errorMessage}`);
+          
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage,
+          });
+          
+          return { action, success: false, error: errorMessage };
+        }
+
         const result = await gmail.sendEmailWithDryRun(agentEmail, {
           to: action.to,
           cc: action.cc,
@@ -574,21 +598,67 @@ async function executeAction(
           return { action, success: false, error: 'Precedent integration disabled' };
         }
 
-        // Post to Precedent in Slack (assuming there's a @Precedent bot)
-        // This would be channel-specific in reality
-        const precedentMessage = `@Precedent ${action.intent}${action.extraContext ? ` (${action.extraContext})` : ''}`;
+        // Build message to @Precedent
+        let precedentMessage: string;
+        if (action.intent === 'query' && action.query) {
+          // Natural follow-up question
+          precedentMessage = `@Precedent ${action.query}`;
+        } else {
+          // Structured intent
+          precedentMessage = `@Precedent ${action.intent}${action.extraContext ? ` (${action.extraContext})` : ''}`;
+        }
 
-        // Find a leadership channel to post in
+        // Find #precedent channel if available, otherwise use first leadership channel
         const channelIds = await slack.getAgentChannelIds(agentId);
-        if (channelIds.length === 0) {
+        const precedentChannelId = await slack.getChannelIdByName('precedent');
+        const targetChannel = precedentChannelId || channelIds[0];
+        
+        if (!targetChannel) {
           throw new Error('No Slack channels available for Precedent interaction');
         }
 
         // Get agent persona for username override
         const precedentPersona = getAgent(agentId);
-        const result = await slack.postMessageWithDryRun(channelIds[0], precedentMessage, {
+        const result = await slack.postMessageWithDryRun(targetChannel, precedentMessage, {
+          threadTs: action.threadTs, // Reply in thread for follow-ups
           username: precedentPersona?.name,
         });
+
+        // Save message to DB so agent remembers they asked
+        if (!result.dryRun) {
+          const conversationId = action.threadTs
+            ? `slack:${targetChannel}:${action.threadTs}`
+            : `slack:${targetChannel}:${result.ts}`;
+
+          await db.upsertConversation({
+            id: conversationId,
+            type: 'slack',
+            subject: '#precedent',
+            participants: [agentId],
+            lastActivityAt: new Date(),
+            messageCount: 1,
+            metadata: { channelId: targetChannel, isPrecedentConversation: true },
+          });
+
+          await db.upsertMessages([
+            {
+              id: `slack:${targetChannel}:${result.ts}`,
+              conversationId,
+              type: 'slack',
+              fromAgent: agentId,
+              bodyPreview: precedentMessage.slice(0, 500),
+              fullBody: precedentMessage,
+              timestamp: new Date(),
+              isRead: true,
+              metadata: {
+                channel: targetChannel,
+                ts: result.ts,
+                threadTs: action.threadTs,
+                isPrecedentQuery: true,
+              },
+            },
+          ]);
+        }
 
         await db.logAgentAction({
           agentId,

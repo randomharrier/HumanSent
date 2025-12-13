@@ -142,13 +142,19 @@ export async function getChannelMessages(
   const messages: SlackMessage[] = [];
 
   for (const msg of result.messages || []) {
-    if (!msg.ts || msg.subtype) continue; // Skip system messages
+    if (!msg.ts) continue;
+    
+    // Skip system messages (joins, leaves, etc.) but KEEP bot messages
+    // Bot messages are important for seeing @Precedent responses
+    const skipSubtypes = ['channel_join', 'channel_leave', 'channel_topic', 'channel_purpose'];
+    if (msg.subtype && skipSubtypes.includes(msg.subtype)) continue;
 
     messages.push({
       ts: msg.ts,
       threadTs: msg.thread_ts,
       channel: channelId,
-      userId: msg.user || '',
+      userId: msg.user || msg.bot_id || '',
+      userName: msg.username || (msg.bot_id ? 'bot' : undefined),
       text: msg.text || '',
       timestamp: new Date(parseFloat(msg.ts) * 1000),
       isThreadReply: !!msg.thread_ts && msg.thread_ts !== msg.ts,
@@ -176,17 +182,27 @@ export async function getThreadMessages(
     limit: options?.limit ?? 100,
   });
 
+  // Skip system messages but keep bot messages (for @Precedent responses)
+  const skipSubtypes = ['channel_join', 'channel_leave', 'channel_topic', 'channel_purpose'];
+  
   return (result.messages || [])
-    .filter((msg) => !(msg as Record<string, unknown>).subtype)
-    .map((msg) => ({
-      ts: msg.ts || '',
-      threadTs: msg.thread_ts,
-      channel: channelId,
-      userId: msg.user || '',
-      text: msg.text || '',
-      timestamp: new Date(parseFloat(msg.ts || '0') * 1000),
-      isThreadReply: msg.ts !== threadTs,
-    }));
+    .filter((msg) => {
+      const subtype = (msg as Record<string, unknown>).subtype as string | undefined;
+      return !subtype || !skipSubtypes.includes(subtype);
+    })
+    .map((msg) => {
+      const msgAny = msg as Record<string, unknown>;
+      return {
+        ts: msg.ts || '',
+        threadTs: msg.thread_ts,
+        channel: channelId,
+        userId: msg.user || (msgAny.bot_id as string) || '',
+        userName: (msgAny.username as string | undefined) || (msgAny.bot_id ? 'bot' : undefined),
+        text: msg.text || '',
+        timestamp: new Date(parseFloat(msg.ts || '0') * 1000),
+        isThreadReply: msg.ts !== threadTs,
+      };
+    });
 }
 
 /**
@@ -582,11 +598,11 @@ export async function getAndSyncChannelMessages(
  * Map of agent IDs to their relevant Slack channels
  */
 export const AGENT_CHANNELS: Record<string, string[]> = {
-  // Leadership
-  alex: ['leadership', 'all-humansent', 'customer-escalations'],
-  morgan: ['leadership', 'operations', 'all-humansent', 'random'],
-  jordan: ['leadership', 'product', 'customer-escalations', 'all-humansent', 'random'],
-  sam: ['leadership', 'engineering', 'all-humansent', 'random'],
+  // Leadership (Precedent test users)
+  alex: ['leadership', 'all-humansent', 'customer-escalations', 'precedent', 'precedent-feedback'],
+  morgan: ['leadership', 'operations', 'all-humansent', 'random', 'precedent', 'precedent-feedback'],
+  jordan: ['leadership', 'product', 'customer-escalations', 'all-humansent', 'random', 'precedent', 'precedent-feedback'],
+  sam: ['leadership', 'engineering', 'all-humansent', 'random', 'precedent', 'precedent-feedback'],
 
   // Internal (these folks hang out in #random)
   taylor: ['product', 'customer-escalations', 'random'],
@@ -598,6 +614,7 @@ export const AGENT_CHANNELS: Record<string, string[]> = {
   'sarah-investor': [], // Investor doesn't have Slack access typically
   'karen-customer': [], // Customer doesn't have Slack access
   'robert-legal': ['leadership', 'legal'],
+  'elena-scribes': ['operations'], // Scribe coordinator coordinates with ops
 };
 
 /**

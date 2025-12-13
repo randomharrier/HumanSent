@@ -11,12 +11,12 @@ export { alex, morgan, jordan, sam } from './leadership';
 export { taylor, riley, casey } from './internal';
 
 // External role-players
-export { chanceAdvisor, sarahInvestor, karenCustomer, robertLegal } from './external';
+export { chanceAdvisor, sarahInvestor, karenCustomer, robertLegal, elenaScribes } from './external';
 
 // Import all for registry
 import { alex, morgan, jordan, sam } from './leadership';
 import { taylor, riley, casey } from './internal';
-import { chanceAdvisor, sarahInvestor, karenCustomer, robertLegal } from './external';
+import { chanceAdvisor, sarahInvestor, karenCustomer, robertLegal, elenaScribes } from './external';
 
 /**
  * All agent personas indexed by ID
@@ -33,11 +33,12 @@ export const AGENTS: Record<string, AgentPersona> = {
   riley,
   casey,
 
-  // External Role-Players (4)
+  // External Role-Players (5)
   'chance-advisor': chanceAdvisor,
   'sarah-investor': sarahInvestor,
   'karen-customer': karenCustomer,
   'robert-legal': robertLegal,
+  'elena-scribes': elenaScribes,
 };
 
 /**
@@ -79,6 +80,7 @@ export const EXTERNAL_IDS = [
   'sarah-investor',
   'karen-customer',
   'robert-legal',
+  'elena-scribes',
 ] as const;
 
 /**
