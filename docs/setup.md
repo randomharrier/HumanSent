@@ -397,6 +397,11 @@ Once verified, set `DRY_RUN_MODE=false` to enable real email/Slack.
 - Check bot token scopes
 - Verify signing secret
 
+### Precedent (DM-only)
+
+- Precedent must be contacted via **DM**, not channel mentions
+- Set `PRECEDENT_SLACK_USER_ID` to the Slack Member ID of Precedent
+
 ### Agent Not Responding
 
 - Check `agent_state.is_active` is true

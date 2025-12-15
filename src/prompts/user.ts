@@ -3,7 +3,9 @@
  */
 
 import type { AgentContext, EmailMessage, SlackMessage, AgentTask, RecentAction } from '../types/agent';
-import { AGENT_CHANNELS } from '../services/slack';
+import { ENV } from '../config';
+import { AGENT_CHANNELS, isDryRunMode as isSlackDryRunMode } from '../services/slack';
+import { isDryRunMode as isGmailDryRunMode } from '../services/gmail';
 
 /**
  * Build the user prompt with current context
@@ -27,6 +29,21 @@ export function buildUserPrompt(context: AgentContext): string {
   sections.push(`- Remaining today: ${context.state.budgetRemaining}/100`);
   sections.push('');
 
+  // Integration / simulation status (keeps agents honest about what actually happened)
+  const dryRunMode = isSlackDryRunMode() || isGmailDryRunMode();
+  const slackConfigured = !!process.env.SLACK_BOT_TOKEN;
+  const gmailConfigured =
+    !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && !!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+  const precedentTargetConfigured = !!process.env.PRECEDENT_SLACK_USER_ID;
+
+  sections.push('## Simulation / Integration Status');
+  sections.push(`- DRY_RUN_MODE: ${dryRunMode ? 'true' : 'false'}`);
+  sections.push(`- Slack configured: ${slackConfigured ? 'Yes' : 'No'}`);
+  sections.push(`- Gmail configured: ${gmailConfigured ? 'Yes' : 'No'}`);
+  sections.push(`- Precedent integration enabled: ${ENV.enablePrecedentIntegration ? 'Yes' : 'No'}`);
+  sections.push(`- Precedent DM target configured: ${precedentTargetConfigured ? 'Yes' : 'No'}`);
+  sections.push('');
+
   // Memory (persistent observations from previous ticks)
   const notes = context.state.notes as { observations?: string[]; lastUpdated?: string } | undefined;
   if (notes?.observations && notes.observations.length > 0) {
@@ -43,7 +60,11 @@ export function buildUserPrompt(context: AgentContext): string {
     sections.push('No recent actions.');
   } else {
     for (const action of context.recentActions.slice(0, 10)) {
-      sections.push(`- ${formatTime(action.timestamp)}: ${action.summary}`);
+      const status =
+        action.success === false
+          ? ` (NOT EXECUTED${action.errorMessage ? `: ${action.errorMessage}` : ''})`
+          : '';
+      sections.push(`- ${formatTime(action.timestamp)}: ${action.summary}${status}`);
     }
   }
   sections.push('');
@@ -146,7 +167,10 @@ function formatEmail(email: EmailMessage, context: AgentContext): string {
   lines.push('');
   lines.push('Body:');
   lines.push('```');
-  lines.push(email.bodyPreview || email.fullBody || '(no content)');
+  const rawBody = (email.fullBody || email.bodyPreview || '').trim();
+  const maxChars = 4000;
+  const clipped = rawBody.length > maxChars ? `${rawBody.slice(0, maxChars)}\n\n[...truncated...]` : rawBody;
+  lines.push(clipped || '(no content)');
   lines.push('```');
   lines.push('');
 

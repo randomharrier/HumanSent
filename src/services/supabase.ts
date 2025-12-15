@@ -250,6 +250,8 @@ export async function getRecentActions(
     actionType: string;
     payload: Record<string, unknown>;
     reasoning: string | null;
+    success: boolean;
+    errorMessage: string | null;
     createdAt: Date;
   }>
 > {
@@ -257,7 +259,7 @@ export async function getRecentActions(
 
   const { data, error } = await getClient()
     .from('agent_actions')
-    .select('id, action_type, payload, reasoning, created_at')
+    .select('id, action_type, payload, reasoning, success, error_message, created_at')
     .eq('agent_id', agentId)
     .gte('created_at', since)
     .order('created_at', { ascending: false });
@@ -269,6 +271,8 @@ export async function getRecentActions(
     actionType: row.action_type as string,
     payload: row.payload as Record<string, unknown>,
     reasoning: row.reasoning as string | null,
+    success: (row.success as boolean | null) ?? true,
+    errorMessage: (row.error_message as string | null) ?? null,
     createdAt: new Date(row.created_at as string),
   }));
 }

@@ -146,6 +146,10 @@ GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END P
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_SIGNING_SECRET=your-signing-secret
 
+# Precedent (DM target)
+# Precedent must be contacted via DM (not channel mentions). Set this to the Slack Member ID of Precedent.
+PRECEDENT_SLACK_USER_ID=U0123456789
+
 # Slack Control Channel (recommended)
 # Create a private channel (e.g. #agent-control), invite the bot, then copy the Channel ID.
 SLACK_CONTROL_CHANNEL_ID=C0123456789

@@ -95,7 +95,7 @@ emoji when appropriate. Writes detailed PRDs that engineering actually reads.`,
   ],
 
   proactiveGoals: [
-    'Ask @Precedent in #precedent about customer escalations and urgent items',
+    'DM @Precedent about customer escalations and urgent items',
     'Review recent customer support tickets for patterns and insights',
     'Sync with Taylor on customer sentiment and escalations',
     'Work with Sam on feature requirements and prioritization',

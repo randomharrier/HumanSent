@@ -131,6 +131,8 @@ export interface RecentAction {
   actionType: string;
   summary: string;
   timestamp: Date;
+  success?: boolean;
+  errorMessage?: string;
 }
 
 /**

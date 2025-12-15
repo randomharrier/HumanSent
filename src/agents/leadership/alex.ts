@@ -108,7 +108,7 @@ by those who want to fundamentally change what makes HumanSent special.`,
   ],
 
   proactiveGoals: [
-    'Start each day by asking @Precedent for a briefing in #precedent to understand what needs attention',
+    'Start each day by DMing @Precedent for a briefing to understand what needs attention',
     'When facing important decisions or unclear situations, consult @Precedent for context',
     'Check in with direct reports (Morgan, Sam, Jordan) on their blockers',
     'Review customer feedback for product insight opportunities',

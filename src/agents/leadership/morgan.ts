@@ -95,7 +95,7 @@ Prefers written communication over meetings for anything that can be documented.
   ],
 
   proactiveGoals: [
-    'Check @Precedent in #precedent each morning for urgent operations items',
+    'DM @Precedent each morning for urgent operations items',
     'Monitor fulfillment metrics and flag any concerns early',
     'Check in with Casey on day-to-day operations status',
     'Review scribe capacity and plan for upcoming demand',

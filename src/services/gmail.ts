@@ -7,6 +7,13 @@
 import { google, gmail_v1 } from 'googleapis';
 import type { EmailMessage } from '../types';
 
+function decodeBase64Url(data: string): string {
+  // Gmail returns base64url (RFC 4648 §5). Node's Buffer expects standard base64.
+  const normalized = data.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 === 0 ? '' : '='.repeat(4 - (normalized.length % 4));
+  return Buffer.from(normalized + padding, 'base64').toString('utf-8');
+}
+
 // ============================================
 // Types
 // ============================================
@@ -368,14 +375,14 @@ function extractBody(payload: gmail_v1.Schema$MessagePart | undefined): string {
 
   // Try to get plain text body
   if (payload.mimeType === 'text/plain' && payload.body?.data) {
-    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+    return decodeBase64Url(payload.body.data);
   }
 
   // Check parts recursively
   if (payload.parts) {
     for (const part of payload.parts) {
       if (part.mimeType === 'text/plain' && part.body?.data) {
-        return Buffer.from(part.body.data, 'base64').toString('utf-8');
+        return decodeBase64Url(part.body.data);
       }
 
       // Recurse into multipart
@@ -388,7 +395,7 @@ function extractBody(payload: gmail_v1.Schema$MessagePart | undefined): string {
     // Fallback to HTML if no plain text
     for (const part of payload.parts) {
       if (part.mimeType === 'text/html' && part.body?.data) {
-        const html = Buffer.from(part.body.data, 'base64').toString('utf-8');
+        const html = decodeBase64Url(part.body.data);
         // Basic HTML to text conversion
         return html
           .replace(/<br\s*\/?>/gi, '\n')

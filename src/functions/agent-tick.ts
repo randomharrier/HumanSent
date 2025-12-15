@@ -178,6 +178,8 @@ export const agentTickFunction = inngest.createFunction(
           actionType: a.actionType,
           summary: summarizeAction(a.actionType, a.payload),
           timestamp: a.createdAt,
+          success: a.success,
+          errorMessage: a.errorMessage,
         }));
 
         return {
@@ -461,10 +463,13 @@ async function executeAction(
           tickId,
           actionType: action.type,
           payload: { ...action, result },
-          success: true,
+          success: !result.dryRun,
+          errorMessage: result.dryRun ? 'DRY_RUN_MODE enabled (email not sent)' : undefined,
         });
 
-        return { action, success: true, metadata: result };
+        return result.dryRun
+          ? { action, success: false, error: 'DRY_RUN_MODE enabled (email not sent)', metadata: result }
+          : { action, success: true, metadata: result };
       }
 
       case 'send_slack_message': {
@@ -477,6 +482,22 @@ async function executeAction(
             throw new Error(`Channel not found: ${action.channel}`);
           }
           channelId = resolved;
+        }
+
+        // Guardrail: @Precedent must be contacted via DM using use_precedent.
+        // If an agent tries to mention Precedent in a channel, block and nudge them.
+        if (/@precedent\b/i.test(action.text) || /precedent ai/i.test(action.text)) {
+          const errorMessage =
+            'Precedent must be contacted via DM (use the use_precedent action). Posting @Precedent in channels will not work.';
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage,
+          });
+          return { action, success: false, error: errorMessage };
         }
 
         // Get agent persona for username override
@@ -529,10 +550,13 @@ async function executeAction(
           tickId,
           actionType: action.type,
           payload: { ...action, result },
-          success: true,
+          success: !result.dryRun,
+          errorMessage: result.dryRun ? 'DRY_RUN_MODE enabled (Slack message not sent)' : undefined,
         });
 
-        return { action, success: true, metadata: result };
+        return result.dryRun
+          ? { action, success: false, error: 'DRY_RUN_MODE enabled (Slack message not sent)', metadata: result }
+          : { action, success: true, metadata: result };
       }
 
       case 'create_task': {
@@ -598,6 +622,21 @@ async function executeAction(
           return { action, success: false, error: 'Precedent integration disabled' };
         }
 
+        const precedentUserId = process.env.PRECEDENT_SLACK_USER_ID;
+        if (!precedentUserId) {
+          const errorMessage =
+            'Missing PRECEDENT_SLACK_USER_ID environment variable (Precedent must be contacted via DM).';
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage,
+          });
+          return { action, success: false, error: errorMessage };
+        }
+
         // Build message to @Precedent
         let precedentMessage: string;
         if (action.intent === 'query' && action.query) {
@@ -608,41 +647,32 @@ async function executeAction(
           precedentMessage = `@Precedent ${action.intent}${action.extraContext ? ` (${action.extraContext})` : ''}`;
         }
 
-        // Find #precedent channel if available, otherwise use first leadership channel
-        const channelIds = await slack.getAgentChannelIds(agentId);
-        const precedentChannelId = await slack.getChannelIdByName('precedent');
-        const targetChannel = precedentChannelId || channelIds[0];
-        
-        if (!targetChannel) {
-          throw new Error('No Slack channels available for Precedent interaction');
-        }
-
         // Get agent persona for username override
         const precedentPersona = getAgent(agentId);
-        const result = await slack.postMessageWithDryRun(targetChannel, precedentMessage, {
-          threadTs: action.threadTs, // Reply in thread for follow-ups
+        const result = await slack.sendDirectMessageWithDryRun(precedentUserId, precedentMessage, {
+          threadTs: action.threadTs,
           username: precedentPersona?.name,
         });
 
         // Save message to DB so agent remembers they asked
         if (!result.dryRun) {
           const conversationId = action.threadTs
-            ? `slack:${targetChannel}:${action.threadTs}`
-            : `slack:${targetChannel}:${result.ts}`;
+            ? `slack:${result.channel}:${action.threadTs}`
+            : `slack:${result.channel}:${result.ts}`;
 
           await db.upsertConversation({
             id: conversationId,
             type: 'slack',
-            subject: '#precedent',
+            subject: 'DM: Precedent',
             participants: [agentId],
             lastActivityAt: new Date(),
             messageCount: 1,
-            metadata: { channelId: targetChannel, isPrecedentConversation: true },
+            metadata: { channelId: result.channel, isPrecedentConversation: true, precedentUserId },
           });
 
           await db.upsertMessages([
             {
-              id: `slack:${targetChannel}:${result.ts}`,
+              id: `slack:${result.channel}:${result.ts}`,
               conversationId,
               type: 'slack',
               fromAgent: agentId,
@@ -651,7 +681,7 @@ async function executeAction(
               timestamp: new Date(),
               isRead: true,
               metadata: {
-                channel: targetChannel,
+                channel: result.channel,
                 ts: result.ts,
                 threadTs: action.threadTs,
                 isPrecedentQuery: true,
@@ -665,10 +695,13 @@ async function executeAction(
           tickId,
           actionType: action.type,
           payload: { ...action, result },
-          success: true,
+          success: !result.dryRun,
+          errorMessage: result.dryRun ? 'DRY_RUN_MODE enabled (Precedent DM not sent)' : undefined,
         });
 
-        return { action, success: true, metadata: result };
+        return result.dryRun
+          ? { action, success: false, error: 'DRY_RUN_MODE enabled (Precedent DM not sent)', metadata: result }
+          : { action, success: true, metadata: result };
       }
 
       case 'no_action': {

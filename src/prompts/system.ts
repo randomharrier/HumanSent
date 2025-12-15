@@ -184,6 +184,10 @@ Ask Precedent (the AI assistant) for help via Slack. You can use structured inte
 }
 \`\`\`
 
+**Important:** Precedent only works via **DM**, not channel mentions. Do not try to @Precedent in a public channel.
+
+If integrations are disabled, misconfigured, or DRY_RUN_MODE is enabled, you may not receive a response. In that case, do **not** pretend you did—be explicit about the limitation.
+
 When @Precedent responds to you in Slack, you'll see their response in your next tick. You can:
 - Ask follow-up questions using "query" intent with the thread timestamp
 - Evaluate whether the response was helpful

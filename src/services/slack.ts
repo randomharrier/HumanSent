@@ -347,6 +347,68 @@ export async function sendDirectMessageByEmail(
   return sendDirectMessage(userId, text);
 }
 
+/**
+ * Send DM with dry run support
+ */
+export async function sendDirectMessageWithDryRun(
+  userId: string,
+  text: string,
+  options?: {
+    threadTs?: string;
+    username?: string;
+    iconEmoji?: string;
+  }
+): Promise<{ ts: string; channel: string; dryRun: boolean }> {
+  if (isDryRunMode()) {
+    console.warn('[DRY RUN] Would send Slack DM:', {
+      userId,
+      text: text.slice(0, 100),
+      threadTs: options?.threadTs,
+    });
+    return {
+      ts: `dry-run-${Date.now()}`,
+      channel: `dm:${userId}`,
+      dryRun: true,
+    };
+  }
+
+  // Open DM channel so we can support threading via postMessage if needed later.
+  const client = getClient();
+  const openResult = await client.conversations.open({ users: userId });
+  const channelId = openResult.channel?.id;
+  if (!channelId) {
+    throw new Error(`Failed to open DM with user ${userId}`);
+  }
+
+  const result = await postMessage(channelId, text, {
+    threadTs: options?.threadTs,
+    username: options?.username,
+    iconEmoji: options?.iconEmoji,
+  });
+  return { ...result, dryRun: false };
+}
+
+/**
+ * Send DM by email with dry run support
+ */
+export async function sendDirectMessageByEmailWithDryRun(
+  email: string,
+  text: string,
+  options?: {
+    threadTs?: string;
+    username?: string;
+    iconEmoji?: string;
+  }
+): Promise<{ ts: string; channel: string; dryRun: boolean }> {
+  const userId = await getUserIdByEmail(email);
+
+  if (!userId) {
+    throw new Error(`User not found with email: ${email}`);
+  }
+
+  return sendDirectMessageWithDryRun(userId, text, options);
+}
+
 // ============================================
 // Dry Run Mode
 // ============================================

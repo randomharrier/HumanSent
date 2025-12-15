@@ -81,6 +81,10 @@ INNGEST_SIGNING_KEY=...
 GOOGLE_SERVICE_ACCOUNT_EMAIL=...
 GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=...
 
+# Precedent (DM target)
+# Precedent must be contacted via DM (not channel mentions). Set this to the Slack Member ID of Precedent.
+PRECEDENT_SLACK_USER_ID=U0123456789
+
 # Agent behavior
 AGENT_TIMEZONE=America/Los_Angeles  # Default
 AGENT_BUSINESS_HOURS_START=9        # Default: 9am
