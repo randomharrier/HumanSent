@@ -7,7 +7,7 @@
 import { inngest } from '../inngest-client';
 import { getAgent, getOtherAgents, ALL_AGENT_IDS } from '../agents';
 import { gmail, slack, llm, db } from '../services';
-import { isBusinessHours, getDayOfWeek, ENV, getTickIntervalMinutes } from '../config';
+import { isBusinessHours, getDayOfWeek, ENV, getTickIntervalMinutes, canUsePrecedent } from '../config';
 import type { AgentContext, AgentState, EmailMessage, SlackMessage, AgentTask } from '../types/agent';
 import type { AgentAction, ActionResult } from '../types/actions';
 
@@ -379,8 +379,16 @@ async function executeAction(
   agentEmail: string,
   tickId: string,
   action: AgentAction,
-  _context: AgentContext
+  context: AgentContext
 ): Promise<ActionResult> {
+  // Convert context.recentActions to the format expected by cooldown checks
+  const recentActionsWithPayload = await db.getRecentActions(agentId, 48);
+  const recentActionsForChecks = recentActionsWithPayload.map(a => ({
+    actionType: a.actionType,
+    timestamp: a.createdAt,
+    payload: a.payload as Record<string, unknown>,
+  }));
+
   try {
     switch (action.type) {
       case 'send_email': {
@@ -404,6 +412,40 @@ async function executeAction(
           });
           
           return { action, success: false, error: errorMessage };
+        }
+
+        // Check cooldown period (don't email same person too quickly)
+        const cooldownError = checkEmailCooldown(action, recentActionsForChecks);
+        if (cooldownError) {
+          console.warn(`[COOLDOWN] ${agentId}: ${cooldownError}`);
+          
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage: cooldownError,
+          });
+          
+          return { action, success: false, error: cooldownError };
+        }
+
+        // Check for duplicate emails (similar subject to same person)
+        const duplicateError = checkDuplicateEmail(action, recentActionsForChecks);
+        if (duplicateError) {
+          console.warn(`[DUPLICATE] ${agentId}: ${duplicateError}`);
+          
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage: duplicateError,
+          });
+          
+          return { action, success: false, error: duplicateError };
         }
 
         const result = await gmail.sendEmailWithDryRun(agentEmail, {
@@ -473,6 +515,23 @@ async function executeAction(
       }
 
       case 'send_slack_message': {
+        // Check cooldown period (don't spam same channel too quickly)
+        const slackCooldownError = checkSlackCooldown(action, recentActionsForChecks);
+        if (slackCooldownError) {
+          console.warn(`[COOLDOWN] ${agentId}: ${slackCooldownError}`);
+          
+          await db.logAgentAction({
+            agentId,
+            tickId,
+            actionType: action.type,
+            payload: action,
+            success: false,
+            errorMessage: slackCooldownError,
+          });
+          
+          return { action, success: false, error: slackCooldownError };
+        }
+
         // Resolve channel name to ID if needed
         let channelId = action.channel;
         const channelName = action.channel.replace(/^#/, '');
@@ -609,17 +668,19 @@ async function executeAction(
       }
 
       case 'use_precedent': {
-        if (!ENV.enablePrecedentIntegration) {
+        // Check if this specific agent is onboarded to Precedent
+        if (!canUsePrecedent(agentId)) {
+          const errorMessage = `Agent ${agentId} is not onboarded to Precedent. Add to PRECEDENT_ENABLED_AGENTS to enable.`;
           await db.logAgentAction({
             agentId,
             tickId,
             actionType: action.type,
             payload: action,
-            reasoning: 'Precedent integration disabled',
+            reasoning: errorMessage,
             success: false,
-            errorMessage: 'Precedent integration disabled',
+            errorMessage,
           });
-          return { action, success: false, error: 'Precedent integration disabled' };
+          return { action, success: false, error: errorMessage };
         }
 
         const precedentUserId = process.env.PRECEDENT_SLACK_USER_ID;
@@ -753,6 +814,123 @@ function getActionCost(actionType: AgentAction['type']): number {
     no_action: 0,
   };
   return costs[actionType];
+}
+
+/**
+ * Check if an email action violates the cooldown period
+ * Returns an error message if blocked, null if allowed
+ */
+function checkEmailCooldown(
+  action: { type: 'send_email'; to: string[]; subject: string },
+  recentActions: Array<{ actionType: string; timestamp: Date; payload?: Record<string, unknown> }>
+): string | null {
+  const cooldownMinutes = ENV.emailCooldownMinutes;
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const now = Date.now();
+
+  // Find recent emails to any of the same recipients
+  for (const recent of recentActions) {
+    if (recent.actionType !== 'send_email') continue;
+    
+    const timeSinceAction = now - recent.timestamp.getTime();
+    if (timeSinceAction > cooldownMs) continue; // Outside cooldown window
+    
+    const recentPayload = recent.payload as { to?: string[]; subject?: string } | undefined;
+    if (!recentPayload?.to) continue;
+    
+    // Check if any recipient overlaps
+    const recentRecipients = new Set(recentPayload.to);
+    const overlappingRecipients = action.to.filter(r => recentRecipients.has(r));
+    
+    if (overlappingRecipients.length > 0) {
+      const minutesAgo = Math.floor(timeSinceAction / 60000);
+      return `COOLDOWN: Already emailed ${overlappingRecipients.join(', ')} ${minutesAgo} minutes ago (cooldown: ${cooldownMinutes}m). Recent subject: "${recentPayload.subject}". Wait before sending again.`;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Check if a Slack message action violates the cooldown period
+ * Returns an error message if blocked, null if allowed
+ */
+function checkSlackCooldown(
+  action: { type: 'send_slack_message'; channel: string; text: string },
+  recentActions: Array<{ actionType: string; timestamp: Date; payload?: Record<string, unknown> }>
+): string | null {
+  const cooldownMinutes = ENV.slackCooldownMinutes;
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const now = Date.now();
+
+  // Normalize channel name
+  const targetChannel = action.channel.replace(/^#/, '').toLowerCase();
+
+  // Find recent messages to the same channel
+  for (const recent of recentActions) {
+    if (recent.actionType !== 'send_slack_message') continue;
+    
+    const timeSinceAction = now - recent.timestamp.getTime();
+    if (timeSinceAction > cooldownMs) continue; // Outside cooldown window
+    
+    const recentPayload = recent.payload as { channel?: string; text?: string } | undefined;
+    if (!recentPayload?.channel) continue;
+    
+    const recentChannel = recentPayload.channel.replace(/^#/, '').toLowerCase();
+    
+    if (recentChannel === targetChannel) {
+      const minutesAgo = Math.floor(timeSinceAction / 60000);
+      return `COOLDOWN: Already posted in ${action.channel} ${minutesAgo} minutes ago (cooldown: ${cooldownMinutes}m). Wait before posting again.`;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Check for duplicate email content (similar subject to same recipient)
+ * Returns an error message if likely duplicate, null if allowed
+ */
+function checkDuplicateEmail(
+  action: { type: 'send_email'; to: string[]; subject: string },
+  recentActions: Array<{ actionType: string; timestamp: Date; payload?: Record<string, unknown> }>
+): string | null {
+  // Look at last 24 hours of actions for duplicate detection
+  const lookbackMs = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  for (const recent of recentActions) {
+    if (recent.actionType !== 'send_email') continue;
+    
+    const timeSinceAction = now - recent.timestamp.getTime();
+    if (timeSinceAction > lookbackMs) continue;
+    
+    const recentPayload = recent.payload as { to?: string[]; subject?: string } | undefined;
+    if (!recentPayload?.to || !recentPayload?.subject) continue;
+    
+    // Check if any recipient overlaps
+    const recentRecipients = new Set(recentPayload.to);
+    const overlappingRecipients = action.to.filter(r => recentRecipients.has(r));
+    
+    if (overlappingRecipients.length === 0) continue;
+    
+    // Check for similar subjects (case-insensitive, ignore Re:/Fwd: prefixes)
+    const normalizeSubject = (s: string) => 
+      s.toLowerCase()
+        .replace(/^(re:|fwd:|fw:)\s*/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    
+    const currentSubject = normalizeSubject(action.subject);
+    const recentSubject = normalizeSubject(recentPayload.subject);
+    
+    if (currentSubject === recentSubject) {
+      const hoursAgo = Math.floor(timeSinceAction / (60 * 60 * 1000));
+      return `DUPLICATE: Already sent an email with similar subject "${recentPayload.subject}" to ${overlappingRecipients.join(', ')} ${hoursAgo} hours ago. Avoid sending duplicate emails.`;
+    }
+  }
+  
+  return null;
 }
 
 /**

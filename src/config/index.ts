@@ -17,6 +17,9 @@ export const ENV = {
   /** Leadership agents tick more frequently (for Precedent testing) */
   leadershipTickIntervalMinutes: parseInt(process.env.LEADERSHIP_TICK_INTERVAL_MINUTES || '10', 10),
 
+  /** External agents tick less frequently (they have fewer interactions) */
+  externalTickIntervalMinutes: parseInt(process.env.EXTERNAL_TICK_INTERVAL_MINUTES || '60', 10),
+
   /** Daily action budget per agent (resets daily) */
   dailyBudget: parseInt(process.env.AGENT_DAILY_BUDGET || '250', 10),
 
@@ -29,14 +32,27 @@ export const ENV = {
   /** Dry run mode - logs actions but doesn't execute */
   dryRunMode: process.env.DRY_RUN_MODE === 'true',
 
-  /** Enable Precedent integration */
-  enablePrecedentIntegration: process.env.ENABLE_PRECEDENT_INTEGRATION !== 'false',
+  /** 
+   * Agents that are onboarded to Precedent (comma-separated agent IDs)
+   * Only these agents can use the use_precedent action.
+   * Example: PRECEDENT_ENABLED_AGENTS=alex,morgan,jordan
+   */
+  precedentEnabledAgents: (process.env.PRECEDENT_ENABLED_AGENTS || '').split(',').filter(Boolean),
 
   /** Disabled agents (comma-separated) */
   disabledAgents: (process.env.DISABLED_AGENTS || '').split(',').filter(Boolean),
 
   /** Leadership agents (tick faster, use Precedent) */
   leadershipAgents: ['alex', 'morgan', 'jordan', 'sam'] as readonly string[],
+
+  /** External agents (tick slower) */
+  externalAgents: ['chance-advisor', 'sarah-investor', 'karen-customer', 'robert-legal', 'elena-scribes'] as readonly string[],
+
+  /** Email cooldown in minutes - minimum time between emails to the same recipient */
+  emailCooldownMinutes: parseInt(process.env.EMAIL_COOLDOWN_MINUTES || '30', 10),
+
+  /** Slack cooldown in minutes - minimum time between messages in the same channel */
+  slackCooldownMinutes: parseInt(process.env.SLACK_COOLDOWN_MINUTES || '15', 10),
 } as const;
 
 /**
@@ -45,6 +61,9 @@ export const ENV = {
 export function getTickIntervalMinutes(agentId: string): number {
   if (ENV.leadershipAgents.includes(agentId)) {
     return ENV.leadershipTickIntervalMinutes;
+  }
+  if (ENV.externalAgents.includes(agentId)) {
+    return ENV.externalTickIntervalMinutes;
   }
   return ENV.tickIntervalMinutes;
 }
@@ -82,5 +101,13 @@ export function getDayOfWeek(date: Date = new Date()): string {
     timeZone: ENV.timezone,
     weekday: 'long',
   }).format(date);
+}
+
+/**
+ * Check if an agent is onboarded to use Precedent
+ * Only agents listed in PRECEDENT_ENABLED_AGENTS can use the use_precedent action
+ */
+export function canUsePrecedent(agentId: string): boolean {
+  return ENV.precedentEnabledAgents.includes(agentId);
 }
 

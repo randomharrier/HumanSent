@@ -3,7 +3,7 @@
  */
 
 import type { AgentContext, EmailMessage, SlackMessage, AgentTask, RecentAction } from '../types/agent';
-import { ENV } from '../config';
+import { ENV, canUsePrecedent } from '../config';
 import { AGENT_CHANNELS, isDryRunMode as isSlackDryRunMode } from '../services/slack';
 import { isDryRunMode as isGmailDryRunMode } from '../services/gmail';
 
@@ -36,12 +36,16 @@ export function buildUserPrompt(context: AgentContext): string {
     !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && !!process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
   const precedentTargetConfigured = !!process.env.PRECEDENT_SLACK_USER_ID;
 
+  const agentCanUsePrecedent = canUsePrecedent(context.agent.id);
+
   sections.push('## Simulation / Integration Status');
   sections.push(`- DRY_RUN_MODE: ${dryRunMode ? 'true' : 'false'}`);
   sections.push(`- Slack configured: ${slackConfigured ? 'Yes' : 'No'}`);
   sections.push(`- Gmail configured: ${gmailConfigured ? 'Yes' : 'No'}`);
-  sections.push(`- Precedent integration enabled: ${ENV.enablePrecedentIntegration ? 'Yes' : 'No'}`);
-  sections.push(`- Precedent DM target configured: ${precedentTargetConfigured ? 'Yes' : 'No'}`);
+  sections.push(`- You can use Precedent: ${agentCanUsePrecedent ? 'Yes' : 'No (not onboarded)'}`);
+  if (agentCanUsePrecedent) {
+    sections.push(`- Precedent DM target configured: ${precedentTargetConfigured ? 'Yes' : 'No'}`);
+  }
   sections.push('');
 
   // Memory (persistent observations from previous ticks)
